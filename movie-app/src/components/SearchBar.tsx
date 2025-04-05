@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { debounce } from 'lodash'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 
 interface SearchBarProps {
   onSearch: (query: string) => void
@@ -7,20 +8,39 @@ interface SearchBarProps {
 export const SearchBar = ({ onSearch }: SearchBarProps) => {
   const [query, setQuery] = useState('')
 
+  // Создаем мемоизированную debounce-функцию
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((searchQuery: string) => {
+        onSearch(searchQuery)
+      }, 500),
+    [onSearch] // Зависимости для пересоздания debounce
+  )
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setQuery(e.target.value)
+      debouncedSearch(e.target.value)
+    },
+    [debouncedSearch] // debouncedSearch не меняется благодаря useMemo
+  )
+
+  // Очистка таймера при размонтировании
   useEffect(() => {
-    const timer = setTimeout(() => onSearch(query), 500)
-    return () => clearTimeout(timer)
-  }, [query, onSearch])
+    return () => {
+      debouncedSearch.cancel()
+    }
+  }, [debouncedSearch])
 
   return (
     <input
       type='text'
-      placeholder='Search movies...'
+      placeholder='Поиск фильмов...'
       value={query}
-      onChange={e => setQuery(e.target.value)}
-      className='w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500'
+      onChange={handleChange}
+      className='w-full p-2 border border-gray-300 rounded mb-6'
     />
   )
 }
 
-export default SearchBar
+export default memo(SearchBar)
